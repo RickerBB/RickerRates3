@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ricker Rates 终极风控沙盘</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --panel-bg: #161b22;
+            --text-main: #c9d1d9;
+            --accent-blue: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-red: #f85149;
+            --accent-yellow: #d29922;
+            --border-color: #30363d;
+        }
+
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--accent-blue);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 15px;
+            margin-top: 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #8b949e;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: var(--accent-blue);
+        }
+
+        .value-display {
+            color: var(--accent-blue);
+            font-weight: bold;
+        }
+
+        .output-panel {
+            background-color: #000;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 20px;
+        }
+
+        .module {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px dashed var(--border-color);
+        }
+
+        .module span:last-child {
+            font-weight: bold;
+        }
+
+        .final-result {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 1.5em;
+            padding: 20px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .status-text {
+            font-size: 0.6em;
+            display: block;
+            margin-top: 10px;
+            text-transform: uppercase;
+        }
+
+        /* Status Colors */
+        .status-buy { background-color: rgba(63, 185, 80, 0.1); border: 1px solid var(--accent-green); color: var(--accent-green); }
+        .status-hold { background-color: rgba(210, 153, 34, 0.1); border: 1px solid var(--accent-yellow); color: var(--accent-yellow); }
+        .status-sell { background-color: rgba(248, 81, 73, 0.1); border: 1px solid var(--accent-red); color: var(--accent-red); }
+
+        .formula-hint {
+            font-size: 0.8em;
+            color: #8b949e;
+            text-align: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Tier-1: Ricker Rates 沙盘系统</h1>
+    
+    <div class="grid">
+        <div class="input-panel">
+            <h3>[ 环境参数调配 ]</h3>
+            
+            <div class="control-group">
+                <label>预期增长率 (g) <span class="value-display" id="val_g">10%</span></label>
+                <input type="range" id="input_g" min="-20" max="50" value="10" step="1">
+            </div>
+
+            <div class="control-group">
+                <label>股息派发率 (pr) <span class="value-display" id="val_pr">30%</span></label>
+                <input type="range" id="input_pr" min="0" max="100" value="30" step="1">
+            </div>
+
+            <div class="control-group">
+                <label>留存收益再投资效率 (RONIC) <span class="value-display" id="val_ronic">15%</span></label>
+                <input type="range" id="input_ronic" min="0" max="50" value="15" step="1">
+            </div>
+
+            <div class="control-group">
+                <label>当前市盈率 (PE Current) <span class="value-display" id="val_pe_c">15</span></label>
+                <input type="range" id="input_pe_c" min="1" max="100" value="15" step="0.5">
+            </div>
+
+            <div class="control-group">
+                <label>目标市盈率 (PE Target) <span class="value-display" id="val_pe_t">15</span></label>
+                <input type="range" id="input_pe_t" min="1" max="100" value="15" step="0.5">
+            </div>
+
+            <div class="control-group">
+                <label>预期持有时长 (N) 年 <span class="value-display" id="val_n">3</span></label>
+                <input type="range" id="input_n" min="1" max="10" value="3" step="1">
+            </div>
+        </div>
+
+        <div class="output-panel">
+            <h3>[ 物理引擎状态 ]</h3>
+            
+            <div class="module">
+                <span>模块一：现金防御 (即期股息)</span>
+                <span id="out_mod1">0.00%</span>
+            </div>
+            <div class="module">
+                <span>模块二：内生复利 (企业滚雪球)</span>
+                <span id="out_mod2">0.00%</span>
+            </div>
+            <div class="module">
+                <span>模块三：估值重力 (戴维斯双击/双杀)</span>
+                <span id="out_mod3">0.00%</span>
+            </div>
+
+            <div class="final-result" id="final_box">
+                Ricker Rates (r) = <span id="out_r">0.00%</span>
+                <span class="status-text" id="out_status">状态判定中...</span>
+            </div>
+
+            <div class="formula-hint">
+                安全边际线: 10.3% | 无风险平衡线: 4.3%
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 获取所有 DOM 元素
+    const inputs = ['g', 'pr', 'ronic', 'pe_c', 'pe_t', 'n'];
+    const elements = {};
+    
+    inputs.forEach(id => {
+        elements[id] = document.getElementById(`input_${id}`);
+        elements[`val_${id}`] = document.getElementById(`val_${id}`);
+    });
+
+    const out_mod1 = document.getElementById('out_mod1');
+    const out_mod2 = document.getElementById('out_mod2');
+    const out_mod3 = document.getElementById('out_mod3');
+    const out_r = document.getElementById('out_r');
+    const final_box = document.getElementById('final_box');
+    const out_status = document.getElementById('out_status');
+
+    // 核心物理运算
+    function calculateRickerRates() {
+        // 读取并转换参数
+        const g = parseFloat(elements.g.value) / 100;
+        const pr = parseFloat(elements.pr.value) / 100;
+        const ronic = parseFloat(elements.ronic.value) / 100;
+        const pe_c = parseFloat(elements.pe_c.value);
+        const pe_t = parseFloat(elements.pe_t.value);
+        const n = parseFloat(elements.n.value);
+
+        // 更新 UI 数值显示
+        elements.val_g.innerText = elements.g.value + '%';
+        elements.val_pr.innerText = elements.pr.value + '%';
+        elements.val_ronic.innerText = elements.ronic.value + '%';
+        elements.val_pe_c.innerText = elements.pe_c.value;
+        elements.val_pe_t.innerText = elements.pe_t.value;
+        elements.val_n.innerText = elements.n.value;
+
+        // 计算三大模块
+        const mod1 = ((1 + g) * pr) / pe_c;
+        const mod2 = (1 - pr) * ronic;
+        const mod3 = Math.pow((pe_t / pe_c), (1 / n)) - 1;
+
+        // 计算总回报率
+        const r = mod1 + mod2 + mod3;
+
+        // 更新输出面板
+        out_mod1.innerText = (mod1 * 100).toFixed(2) + '%';
+        out_mod2.innerText = (mod2 * 100).toFixed(2) + '%';
+        out_mod3.innerText = (mod3 * 100).toFixed(2) + '%';
+        
+        const rPercentage = (r * 100).toFixed(2);
+        out_r.innerText = rPercentage + '%';
+
+        // 状态机判定
+        final_box.className = 'final-result'; // Reset
+        if (r * 100 >= 10.3) {
+            final_box.classList.add('status-buy');
+            out_status.innerText = '[ 击球区 ] 绝对防御期，允许建仓';
+        } else if (r * 100 > 4.3 && r * 100 < 10.3) {
+            final_box.classList.add('status-hold');
+            out_status.innerText = '[ 持仓区 ] 估值合理，停止加仓，坚定持有';
+        } else {
+            final_box.classList.add('status-sell');
+            out_status.innerText = '[ 危险警告 ] 收益不及国债，强制清仓/空仓';
+        }
+    }
+
+    // 绑定事件监听器
+    inputs.forEach(id => {
+        elements[id].addEventListener('input', calculateRickerRates);
+    });
+
+    // 初始化运行一次
+    calculateRickerRates();
+</script>
+
+</body>
+</html>
